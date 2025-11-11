@@ -1,0 +1,85 @@
+ANDROID UNIGNORABLE ALERT SETUP
+================================
+
+For MAXIMUM unignorable alerts on Android, set up these methods:
+
+1. PUSHOVER (BEST - £4.99 one-time, bypasses DND)
+   ------------------------------------------------
+   a) Download Pushover app from Google Play Store
+   b) Create account at pushover.net
+   c) Get your User Key from pushover.net
+   d) Create an application at pushover.net to get API Token
+   e) In Pushover app → Settings → Notifications:
+      - Emergency Priority: ON (this bypasses DND!)
+      - Sound: Persistent (loudest)
+      - Vibration: Maximum
+      - Override Do Not Disturb: ON
+   f) Add to GitHub Secrets:
+      - PUSHOVER_TOKEN = your API token
+      - PUSHOVER_USER = your user key
+
+   The script sends Emergency Priority (priority 2) which:
+   - Bypasses Do Not Disturb
+   - Repeats every 30 seconds until you acknowledge
+   - Plays sound even on silent mode
+   - Vibrates continuously
+
+2. IFTTT PHONE CALL (MOST UNIGNORABLE - FREE)
+   -------------------------------------------
+   a) Go to ifttt.com and create account
+   b) Create new Applet:
+      - IF: Webhooks → Receive a webhook event
+        Event Name: rtx5090_in_stock
+      - THEN: Phone Call → Call my phone
+        Message: "RTX 5090 is in stock! Check your phone now!"
+   c) Get your IFTTT key from: https://ifttt.com/maker_webhooks
+   d) Add to GitHub Secrets:
+      - IFTTT_KEY = your webhook key
+      - IFTTT_EVENT = rtx5090_in_stock
+
+   This will CALL YOUR PHONE when stock is detected!
+
+3. TELEGRAM (FREE - Good backup)
+   -------------------------------
+   a) Create bot with @BotFather on Telegram
+   b) Get your chat ID (message @userinfobot)
+   c) In Telegram app → Settings → Notifications:
+      - Override Do Not Disturb: ON
+      - Sound: Custom loud alarm
+      - Vibration: Strong
+      - Pop on screen: ON
+      - High priority: ON
+   d) Add to GitHub Secrets:
+      - TELEGRAM_BOT_TOKEN = your bot token
+      - TELEGRAM_CHAT_ID = your chat ID
+
+   The script sends 3 rapid messages for maximum alert!
+
+4. COMBINE ALL THREE FOR MAXIMUM ALERT
+   -------------------------------------
+   Use Pushover + IFTTT Phone Call + Telegram together.
+   When stock is detected, you'll get:
+   - Pushover emergency notification (repeats every 30s)
+   - Phone call from IFTTT
+   - 3 Telegram messages
+   - Discord alert (if configured)
+
+TEST YOUR SETUP:
+----------------
+Run locally to test:
+  python test_notifications.py
+
+Or trigger GitHub Actions manually to test:
+  Go to Actions tab → Run workflow
+
+IMPORTANT ANDROID SETTINGS:
+---------------------------
+For each app (Pushover, Telegram):
+1. Settings → Apps → [App Name] → Notifications
+2. Enable "Override Do Not Disturb"
+3. Set notification importance to "Urgent" or "High"
+4. Enable sound and vibration
+5. Disable battery optimization for the app
+
+This ensures alerts work even when phone is sleeping!
+

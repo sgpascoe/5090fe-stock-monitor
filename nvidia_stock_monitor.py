@@ -147,20 +147,30 @@ class StockMonitor:
                 print(f"Pushover error: {e}")
 
     def send_telegram_urgent(self, message: str):
-        """Send Telegram message with urgent formatting"""
+        """Send Telegram message with urgent formatting - sends multiple messages for maximum alert"""
         if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
             try:
-                # Send with loud notification
-                response = requests.post(
-                    f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-                    json={
-                        "chat_id": TELEGRAM_CHAT_ID,
-                        "text": f"🚨🚨🚨\n{message}\n🚨🚨🚨",
-                        "parse_mode": "HTML",
-                        "disable_notification": False  # Ensure notification sound
-                    }
-                )
-                print(f"Telegram sent: {response.status_code}")
+                urgent_text = f"🚨🚨🚨 RTX 5090 IN STOCK NOW! 🚨🚨🚨\n\n{message}\n\n🚨 BUY NOW! 🚨"
+                
+                # Send 3 urgent messages in rapid succession for maximum alert
+                for i in range(3):
+                    response = requests.post(
+                        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                        json={
+                            "chat_id": TELEGRAM_CHAT_ID,
+                            "text": urgent_text,
+                            "parse_mode": "HTML",
+                            "disable_notification": False,  # Ensure notification sound
+                            "reply_markup": {
+                                "inline_keyboard": [[
+                                    {"text": "🚨 OPEN NVIDIA STORE NOW 🚨", "url": "https://www.nvidia.com/en-gb/shop/"}
+                                ]]
+                            }
+                        }
+                    )
+                    print(f"Telegram message {i+1} sent: {response.status_code}")
+                    if i < 2:  # Don't sleep after last message
+                        time.sleep(1)  # 1 second between messages
             except Exception as e:
                 print(f"Telegram error: {e}")
 
@@ -195,15 +205,20 @@ class StockMonitor:
         """Trigger IFTTT applet for additional actions (phone call, lights, etc)"""
         if IFTTT_KEY:
             try:
-                response = requests.post(
-                    f"https://maker.ifttt.com/trigger/{IFTTT_EVENT}/with/key/{IFTTT_KEY}",
-                    json={
-                        "value1": "RTX 5090 IN STOCK",
-                        "value2": "https://www.nvidia.com/en-gb/shop/",
-                        "value3": datetime.now().strftime("%H:%M:%S")
-                    }
-                )
-                print(f"IFTTT triggered: {response.status_code}")
+                # Trigger multiple times for maximum alert
+                for i in range(2):
+                    response = requests.post(
+                        f"https://maker.ifttt.com/trigger/{IFTTT_EVENT}/with/key/{IFTTT_KEY}",
+                        json={
+                            "value1": "🚨 RTX 5090 IN STOCK NOW! 🚨",
+                            "value2": "https://www.nvidia.com/en-gb/shop/",
+                            "value3": f"URGENT - {datetime.now().strftime('%H:%M:%S')}"
+                        },
+                        timeout=5
+                    )
+                    print(f"IFTTT trigger {i+1} sent: {response.status_code}")
+                    if i < 1:
+                        time.sleep(2)  # 2 seconds between triggers
             except Exception as e:
                 print(f"IFTTT error: {e}")
 

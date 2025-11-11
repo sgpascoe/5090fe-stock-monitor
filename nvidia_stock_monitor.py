@@ -273,7 +273,6 @@ class StockMonitor:
         
         try:
             from twilio.rest import Client
-            from twilio.twiml.voice_response import VoiceResponse
             
             client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
             

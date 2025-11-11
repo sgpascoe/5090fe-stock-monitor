@@ -17,14 +17,15 @@ from nvidia_stock_monitor import (
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
     DISCORD_WEBHOOK,
-    IFTTT_KEY
+    IFTTT_KEY,
+    TWILIO_ACCOUNT_SID,
+    TWILIO_AUTH_TOKEN
 )
 
 if __name__ == "__main__":
     monitor = StockMonitor()
     
     # Check notification services configuration
-    
     has_notifications = False
     if PUSHOVER_TOKEN and PUSHOVER_USER:
         has_notifications = True
@@ -33,6 +34,8 @@ if __name__ == "__main__":
     if DISCORD_WEBHOOK:
         has_notifications = True
     if IFTTT_KEY:
+        has_notifications = True
+    if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
         has_notifications = True
     
     if not has_notifications:

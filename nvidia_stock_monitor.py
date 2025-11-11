@@ -33,6 +33,17 @@ DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK", "")
 IFTTT_KEY = os.getenv("IFTTT_KEY", "")
 IFTTT_EVENT = os.getenv("IFTTT_EVENT", "rtx5090_in_stock")
 
+# Twilio for SMS and Phone Calls (WAKE UP ALERTS)
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
+ALERT_PHONE_NUMBER = os.getenv("ALERT_PHONE_NUMBER", "")  # Your phone number
+
+# Multiple phone numbers for redundancy (comma-separated)
+ALERT_PHONE_NUMBERS = os.getenv("ALERT_PHONE_NUMBERS", "").split(",") if os.getenv("ALERT_PHONE_NUMBERS") else []
+if ALERT_PHONE_NUMBER:
+    ALERT_PHONE_NUMBERS.append(ALERT_PHONE_NUMBER)
+
 
 class StockMonitor:
     def __init__(self):
@@ -222,6 +233,91 @@ class StockMonitor:
             except Exception as e:
                 print(f"IFTTT error: {e}")
 
+    def send_sms_emergency(self, message: str):
+        """Send SMS that can bypass DND - WAKE UP ALERT"""
+        if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_PHONE_NUMBER:
+            return
+        
+        if not ALERT_PHONE_NUMBERS:
+            return
+        
+        try:
+            from twilio.rest import Client
+            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            
+            # Send SMS to all phone numbers
+            for phone in ALERT_PHONE_NUMBERS:
+                if phone.strip():
+                    try:
+                        sms_body = f"🚨 EMERGENCY: RTX 5090 IN STOCK NOW! 🚨\n\n{message}\n\nURGENT - BUY NOW!"
+                        msg = client.messages.create(
+                            body=sms_body,
+                            from_=TWILIO_PHONE_NUMBER,
+                            to=phone.strip()
+                        )
+                        print(f"SMS sent to {phone.strip()}: {msg.sid}")
+                    except Exception as e:
+                        print(f"SMS error for {phone.strip()}: {e}")
+        except ImportError:
+            print("Twilio not installed. Install with: pip install twilio")
+        except Exception as e:
+            print(f"SMS error: {e}")
+
+    def call_phone_emergency(self, message: str):
+        """Make phone call that WILL WAKE YOU UP - bypasses DND"""
+        if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_PHONE_NUMBER:
+            return
+        
+        if not ALERT_PHONE_NUMBERS:
+            return
+        
+        try:
+            from twilio.rest import Client
+            from twilio.twiml.voice_response import VoiceResponse
+            
+            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            
+            # Create TwiML for the call message - will speak and wake you up
+            call_message = (
+                "Emergency alert. RTX 5090 graphics card is in stock now. "
+                "This is an urgent notification. Please check your phone immediately. "
+                "Repeat. RTX 5090 is available now. Buy immediately."
+            )
+            
+            # Escape XML special characters
+            import xml.sax.saxutils
+            escaped_message = xml.sax.saxutils.escape(call_message)
+            
+            # Create TwiML response
+            twiml = f'''<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say voice="alice" loop="3">{escaped_message}</Say>
+    <Pause length="2"/>
+    <Say voice="alice">{escaped_message}</Say>
+</Response>'''
+            
+            # Call each phone number MULTIPLE TIMES for maximum wake-up
+            for phone in ALERT_PHONE_NUMBERS:
+                if phone.strip():
+                    try:
+                        # Call 3 times with 5 second delay between calls
+                        for call_num in range(3):
+                            call = client.calls.create(
+                                twiml=twiml,
+                                to=phone.strip(),
+                                from_=TWILIO_PHONE_NUMBER,
+                                timeout=30  # Ring for 30 seconds
+                            )
+                            print(f"Emergency call {call_num+1} to {phone.strip()}: {call.sid}")
+                            if call_num < 2:
+                                time.sleep(5)  # Wait 5 seconds between calls
+                    except Exception as e:
+                        print(f"Call error for {phone.strip()}: {e}")
+        except ImportError:
+            print("Twilio not installed. Install with: pip install twilio")
+        except Exception as e:
+            print(f"Call error: {e}")
+
     def send_all_alerts(self, stock_info: Dict[str, Any]):
         """Send alerts through all configured channels"""
         message = (
@@ -231,7 +327,14 @@ class StockMonitor:
             f"GO GO GO! → https://www.nvidia.com/en-gb/shop/"
         )
         
-        # Send through all channels simultaneously
+        # Send through all channels simultaneously - MAXIMUM ALERT!
+        # Phone calls FIRST - these will wake you up even if DND is on
+        self.call_phone_emergency(message)
+        
+        # SMS - can bypass DND if configured
+        self.send_sms_emergency(message)
+        
+        # Push notifications
         self.send_pushover_emergency(message)
         self.send_telegram_urgent(message)
         self.send_discord_alert(message)

@@ -41,17 +41,17 @@ if __name__ == "__main__":
     error = stock_info.get("error")
     
     if error:
-        print(f"❌ Error checking stock: {error}")
+        print(f"[ERROR] Error checking stock: {error}")
         sys.exit(1)
     
     if current_status:
-        print(f"🎯 STOCK DETECTED at {datetime.now().strftime('%H:%M:%S')}!")
+        print(f"[STOCK DETECTED] at {datetime.now().strftime('%H:%M:%S')}!")
         print(f"Method: {stock_info.get('method', 'unknown')}")
         print(f"Price: {stock_info.get('price', 'Check site')}")
         print(f"URL: {stock_info.get('url', '')}")
         monitor.send_all_alerts(stock_info)
         sys.exit(0)
     else:
-        print(f"📦 Out of stock (checked at {datetime.now().strftime('%H:%M:%S')})")
+        print(f"[OUT OF STOCK] (checked at {datetime.now().strftime('%H:%M:%S')})")
         sys.exit(0)
 

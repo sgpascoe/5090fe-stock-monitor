@@ -1,0 +1,16 @@
+# Android App Project Structure
+# Place google-services.json in app/ directory
+
+app/
+├── google-services.json          # ← Download from Firebase and place here
+├── src/
+│   └── main/
+│       ├── AndroidManifest.xml
+│       ├── java/com/rtxstock/alert/
+│       │   ├── MainActivity.java
+│       │   └── MyFirebaseMessagingService.java
+│       └── res/
+│           └── layout/
+│               └── activity_main.xml
+└── build.gradle                  # Add Firebase dependencies here
+

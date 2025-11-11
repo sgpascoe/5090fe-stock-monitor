@@ -1,0 +1,172 @@
+# Android App Setup Guide - After Downloading google-services.json
+# =================================================================
+
+STEP 1: Download google-services.json
+---------------------------------------
+✓ You've downloaded it from Firebase Console
+✓ Save it to: app/google-services.json (in your Android project)
+
+STEP 2: Create Android Project Structure
+----------------------------------------
+Create these directories:
+  app/
+  app/src/main/
+  app/src/main/java/com/rtxstock/alert/
+  app/src/main/res/layout/
+
+STEP 3: Add google-services.json
+---------------------------------
+Place the downloaded google-services.json file in:
+  app/google-services.json
+
+STEP 4: Create build.gradle files
+----------------------------------
+Create app/build.gradle with Firebase dependencies:
+
+apply plugin: 'com.android.application'
+apply plugin: 'com.google.gms.google-services'
+
+android {
+    compileSdkVersion 34
+    
+    defaultConfig {
+        applicationId "com.rtxstock.alert"
+        minSdkVersion 21
+        targetSdkVersion 34
+        versionCode 1
+        versionName "1.0"
+    }
+    
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.firebase:firebase-messaging:23.4.0'
+    implementation 'com.google.firebase:firebase-analytics:21.5.0'
+}
+
+Create project-level build.gradle:
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.0'
+        classpath 'com.google.gms:google-services:4.4.0'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+STEP 5: Create AndroidManifest.xml
+------------------------------------
+Place in: app/src/main/AndroidManifest.xml
+
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.rtxstock.alert">
+
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="RTX Stock Alert"
+        android:theme="@style/AppTheme">
+        
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".MyFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>
+
+STEP 6: Create MainActivity.java
+----------------------------------
+Place in: app/src/main/java/com/rtxstock/alert/MainActivity.java
+
+(Code is in FCM_SETUP.txt - copy it)
+
+STEP 7: Create MyFirebaseMessagingService.java
+------------------------------------------------
+Place in: app/src/main/java/com/rtxstock/alert/MyFirebaseMessagingService.java
+
+(Code is in FCM_SETUP.txt - copy it)
+
+STEP 8: Create activity_main.xml layout
+----------------------------------------
+Place in: app/src/main/res/layout/activity_main.xml
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="RTX 5090 Stock Alert"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:id="@+id/token"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Getting FCM token..."
+        android:textSize="12sp"
+        android:fontFamily="monospace"/>
+
+</LinearLayout>
+
+STEP 9: Build and Run
+----------------------
+1. Open project in Android Studio
+2. Sync Gradle files
+3. Connect your Android phone (enable USB debugging)
+4. Run the app
+5. Copy the FCM token displayed on screen
+6. Add to GitHub Secrets as FCM_DEVICE_TOKEN
+
+QUICK START WITH ANDROID STUDIO:
+---------------------------------
+1. File → New → New Project
+2. Choose "Empty Activity"
+3. Package name: com.rtxstock.alert
+4. Copy google-services.json to app/ folder
+5. Add Firebase dependencies to build.gradle
+6. Copy code files from FCM_SETUP.txt
+7. Run on device
+
+That's it! The app will display your FCM token.
+

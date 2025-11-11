@@ -2,8 +2,8 @@ name: RTX 5090 Stock Monitor
 
 on:
   schedule:
-    # Run every 5 minutes (minimum interval for GitHub Actions)
-    - cron: '*/5 * * * *'
+    # Run every 1 minute (GitHub Actions minimum)
+    - cron: '*/1 * * * *'
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
@@ -41,6 +41,8 @@ jobs:
           FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
           FCM_PROJECT_ID: ${{ secrets.FCM_PROJECT_ID }}
           FCM_DEVICE_TOKEN: ${{ secrets.FCM_DEVICE_TOKEN }}
+          CHECK_INTERVAL: 15
+          BACKOFF_DELAY: 5
         run: |
           python check_stock_once.py
 

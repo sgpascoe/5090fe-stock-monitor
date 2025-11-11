@@ -44,8 +44,9 @@ ALERT_PHONE_NUMBERS = os.getenv("ALERT_PHONE_NUMBERS", "").split(",") if os.gete
 if ALERT_PHONE_NUMBER:
     ALERT_PHONE_NUMBERS.append(ALERT_PHONE_NUMBER)
 
-# Firebase Cloud Messaging (FCM) - Native Android High-Priority Alerts
-FCM_SERVER_KEY = os.getenv("FCM_SERVER_KEY", "")
+# Firebase Cloud Messaging (FCM) - Native Android High-Priority Alerts (V1 API)
+FCM_SERVICE_ACCOUNT_JSON = os.getenv("FCM_SERVICE_ACCOUNT_JSON", "")  # Service Account JSON as string
+FCM_PROJECT_ID = os.getenv("FCM_PROJECT_ID", "")  # Your Firebase project ID
 FCM_DEVICE_TOKEN = os.getenv("FCM_DEVICE_TOKEN", "")  # Your Android device FCM token
 
 
@@ -322,48 +323,72 @@ class StockMonitor:
             print(f"Call error: {e}")
 
     def send_fcm_native_alert(self, message: str):
-        """Send native Android high-priority notification via FCM - bypasses DND"""
-        if not FCM_SERVER_KEY or not FCM_DEVICE_TOKEN:
+        """Send native Android high-priority notification via FCM V1 API - bypasses DND"""
+        if not FCM_SERVICE_ACCOUNT_JSON or not FCM_PROJECT_ID or not FCM_DEVICE_TOKEN:
             return
         
         try:
-            # FCM API endpoint
-            fcm_url = "https://fcm.googleapis.com/fcm/send"
+            import json as json_lib
+            from google.oauth2 import service_account
+            from google.auth.transport.requests import Request
+            
+            # Parse service account JSON
+            service_account_info = json_lib.loads(FCM_SERVICE_ACCOUNT_JSON)
+            
+            # Create credentials from service account
+            credentials = service_account.Credentials.from_service_account_info(
+                service_account_info,
+                scopes=['https://www.googleapis.com/auth/firebase.messaging']
+            )
+            
+            # Get access token
+            credentials.refresh(Request())
+            access_token = credentials.token
+            
+            # FCM V1 API endpoint
+            fcm_url = f"https://fcm.googleapis.com/v1/projects/{FCM_PROJECT_ID}/messages:send"
             
             headers = {
-                "Authorization": f"key={FCM_SERVER_KEY}",
+                "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json"
             }
             
-            # High-priority notification payload that bypasses DND
+            # High-priority notification payload (V1 API format)
             payload = {
-                "to": FCM_DEVICE_TOKEN,
-                "priority": "high",  # High priority - can bypass DND
-                "notification": {
-                    "title": "🚨 RTX 5090 IN STOCK NOW!",
-                    "body": message,
-                    "sound": "default",
-                    "channel_id": "high_priority_alerts",  # High-priority channel
-                    "priority": "high",
-                    "visibility": "public"
-                },
-                "data": {
-                    "click_action": "OPEN_NVIDIA_STORE",
-                    "url": "https://www.nvidia.com/en-gb/shop/",
-                    "priority": "high",
-                    "wake_screen": True,
-                    "force_wake": True
-                },
-                "android": {
-                    "priority": "high",
+                "message": {
+                    "token": FCM_DEVICE_TOKEN,
                     "notification": {
-                        "channel_id": "high_priority_alerts",
-                        "sound": "default",
+                        "title": "🚨 RTX 5090 IN STOCK NOW!",
+                        "body": message
+                    },
+                    "data": {
+                        "click_action": "OPEN_NVIDIA_STORE",
+                        "url": "https://www.nvidia.com/en-gb/shop/",
+                        "priority": "high"
+                    },
+                    "android": {
                         "priority": "high",
-                        "visibility": "public",
-                        "default_sound": True,
-                        "default_vibrate_timings": True,
-                        "default_light_settings": True
+                        "notification": {
+                            "channel_id": "high_priority_alerts",
+                            "sound": "default",
+                            "priority": "high",
+                            "visibility": "public",
+                            "default_sound": True,
+                            "default_vibrate_timings": True,
+                            "default_light_settings": True,
+                            "notification_count": 1
+                        }
+                    },
+                    "apns": {
+                        "headers": {
+                            "apns-priority": "10"
+                        },
+                        "payload": {
+                            "aps": {
+                                "sound": "default",
+                                "badge": 1
+                            }
+                        }
                     }
                 }
             }
@@ -378,6 +403,8 @@ class StockMonitor:
                 if i < 2:
                     time.sleep(1)  # 1 second between notifications
                     
+        except ImportError:
+            print("Google auth libraries not installed. Install with: pip install google-auth google-auth-oauthlib google-auth-httplib2")
         except Exception as e:
             print(f"FCM error: {e}")
 

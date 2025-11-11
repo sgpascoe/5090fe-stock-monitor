@@ -44,5 +44,5 @@ jobs:
           CHECK_INTERVAL: 15
           BACKOFF_DELAY: 5
         run: |
-          timeout 300 python nvidia_stock_monitor.py || true
+          python check_stock_once.py
 

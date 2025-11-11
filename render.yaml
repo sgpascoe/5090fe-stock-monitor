@@ -5,12 +5,5 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python nvidia_stock_monitor.py
     plan: free
-    envVars:
-      - key: CHECK_INTERVAL
-        value: 30
-      # Add your notification service credentials as environment variables:
-      # PUSHOVER_TOKEN, PUSHOVER_USER
-      # TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
-      # DISCORD_WEBHOOK
-      # IFTTT_KEY, IFTTT_EVENT
+    # Set PUSHOVER_TOKEN and PUSHOVER_USER as environment variables in Render
 

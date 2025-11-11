@@ -11,45 +11,23 @@ import json
 import os
 from typing import Dict, Any
 
-# Configuration - Use environment variables for cloud deployment
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "20"))  # seconds between checks (20s default, 15-30s range)
-BACKOFF_DELAY = int(os.getenv("BACKOFF_DELAY", "5"))  # seconds to wait on error before retry
+# Monitor configuration
+CHECK_INTERVAL = 15  # seconds between checks (fixed per requirement)
+BACKOFF_DELAY = 5  # seconds to wait on error before retry
 PRODUCT_NAME = "NVIDIA RTX 5090 FE"
 
 # NVIDIA API endpoints
 NVIDIA_API_URL = "https://api.nvidia.partners/edge/product/search?page=1&limit=9&locale=en-gb&category=GPU&gpu=RTX%205090"
 NVIDIA_STORE_URL = "https://www.nvidia.com/en-gb/shop/geforce/gpu/?page=1&limit=100&locale=en-gb&category=GPU&gpu=RTX%205090"
-NVIDIA_MARKETPLACE_URL = "https://marketplace.nvidia.com/en-gb/consumer/graphics-cards/nvidia-geforce-rtx-5090-borderlands-4-game-bundle/"
-NVIDIA_PRODUCT_PAGE = "https://marketplace.nvidia.com/en-gb/consumer/graphics-cards/nvidia-geforce-rtx-5090-borderlands-4-game-bundle/"
+NVIDIA_MARKETPLACE_URLS = [
+    "https://marketplace.nvidia.com/en-gb/consumer/graphics-cards/nvidia-geforce-rtx-5090-borderlands-4-game-bundle/",
+    "https://marketplace.nvidia.com/en-gb/consumer/graphics-cards/nvidia-geforce-rtx-5090/"
+]
+NVIDIA_PRODUCT_PAGE = NVIDIA_STORE_URL
 
 # Notification Services Configuration - from environment variables
 PUSHOVER_TOKEN = os.getenv("PUSHOVER_TOKEN", "")
 PUSHOVER_USER = os.getenv("PUSHOVER_USER", "")
-
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
-
-DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK", "")
-
-# IFTTT for multiple actions (phone call, smart home, etc)
-IFTTT_KEY = os.getenv("IFTTT_KEY", "")
-IFTTT_EVENT = os.getenv("IFTTT_EVENT", "rtx5090_in_stock")
-
-# Twilio for SMS and Phone Calls (WAKE UP ALERTS)
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
-TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
-ALERT_PHONE_NUMBER = os.getenv("ALERT_PHONE_NUMBER", "")  # Your phone number
-
-# Multiple phone numbers for redundancy (comma-separated)
-ALERT_PHONE_NUMBERS = os.getenv("ALERT_PHONE_NUMBERS", "").split(",") if os.getenv("ALERT_PHONE_NUMBERS") else []
-if ALERT_PHONE_NUMBER:
-    ALERT_PHONE_NUMBERS.append(ALERT_PHONE_NUMBER)
-
-# Firebase Cloud Messaging (FCM) - Native Android High-Priority Alerts (V1 API)
-FCM_SERVICE_ACCOUNT_JSON = os.getenv("FCM_SERVICE_ACCOUNT_JSON", "")  # Service Account JSON as string
-FCM_PROJECT_ID = os.getenv("FCM_PROJECT_ID", "")  # Your Firebase project ID
-FCM_DEVICE_TOKEN = os.getenv("FCM_DEVICE_TOKEN", "")  # Your Android device FCM token
 
 
 class StockMonitor:
@@ -57,386 +35,167 @@ class StockMonitor:
         self.last_status = None
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/json',
-            'Accept-Language': 'en-GB,en;q=0.9',
-            'Referer': 'https://www.nvidia.com/en-gb/store/'
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json",
+            "Accept-Language": "en-GB,en;q=0.9",
+            "Referer": "https://www.nvidia.com/en-gb/store/"
         })
 
     def check_stock(self) -> Dict[str, Any]:
-        """Check NVIDIA store for RTX 5090 stock status using API and store page"""
+        """Check NVIDIA store for RTX 5090 stock status using API and multiple marketplace urls"""
+        # Method 1: NVIDIA API
         try:
-            # Method 1: Try NVIDIA API endpoint
+            api_response = self.session.get(NVIDIA_API_URL, timeout=10)
+            if api_response.status_code == 200:
+                try:
+                    data = api_response.json()
+                except json.JSONDecodeError:
+                    print("NVIDIA API returned invalid JSON, falling back to HTML scraping.")
+                else:
+                    products = data.get("searchedProducts", {}).get("productDetails", [])
+                    for product in products:
+                        product_name = (product.get("productTitle") or "").lower()
+                        if "5090" in product_name and "founder" in product_name:
+                            availability = (product.get("prdStatus") or "").lower()
+                            in_stock = "out of stock" not in availability and "notify me" not in availability
+                            if in_stock:
+                                price = product.get("productPrice", {}).get("finalPrice", "Check site")
+                                return {
+                                    "in_stock": True,
+                                    "timestamp": datetime.now().isoformat(),
+                                    "url": product.get("productURL", NVIDIA_PRODUCT_PAGE),
+                                    "price": price,
+                                    "method": "api"
+                                }
+            else:
+                print(f"NVIDIA API HTTP {api_response.status_code}")
+        except Exception as exc:
+            print(f"API check failed: {exc}")
+
+        # Method 2: Marketplace pages (primary)
+        out_of_stock_indicators = [
+            "out of stock",
+            "notify me",
+            "coming soon",
+            "unavailable",
+            "sold out",
+            "notify when available"
+        ]
+        in_stock_indicators = [
+            "add to cart",
+            "buy now",
+            "add to basket",
+            "purchase",
+            "add to bag"
+        ]
+
+        marketplace_errors = []
+        for url in NVIDIA_MARKETPLACE_URLS:
             try:
-                api_response = self.session.get(NVIDIA_API_URL, timeout=10)
-                if api_response.status_code == 200:
-                    try:
-                        data = api_response.json()
-                        # Check if products exist and are available
-                        if isinstance(data, dict) and "searchedProducts" in data:
-                            products = data.get("searchedProducts", {}).get("productDetails", [])
-                            for product in products:
-                                product_name = product.get("productTitle", "").lower()
-                                if "5090" in product_name and "founder" in product_name:
-                                    # Check availability
-                                    availability = product.get("prdStatus", "").lower()
-                                    in_stock = "out of stock" not in availability and "notify me" not in availability
-                                    if in_stock:
-                                        price = product.get("productPrice", {}).get("finalPrice", "Check site")
-                                        return {
-                                            "in_stock": True,
-                                            "timestamp": datetime.now().isoformat(),
-                                            "url": NVIDIA_PRODUCT_PAGE,
-                                            "price": price,
-                                            "method": "api"
-                                        }
-                    except json.JSONDecodeError:
-                        pass  # Fall through to HTML check
-            except Exception as e:
-                print(f"API check failed: {e}")
-            
-            # Method 2: Check marketplace page HTML (primary check)
-            response = self.session.get(NVIDIA_MARKETPLACE_URL, timeout=10)
-            
-            if response.status_code == 200:
-                content = response.text.lower()
-                
-                # Look for stock indicators
-                out_of_stock_indicators = [
-                    "out of stock",
-                    "notify me",
-                    "coming soon",
-                    "unavailable",
-                    "sold out",
-                    "notify when available"
-                ]
-                
-                in_stock_indicators = [
-                    "add to cart",
-                    "buy now",
-                    "add to basket",
-                    "purchase",
-                    "add to bag"
-                ]
-                
-                has_out_of_stock = any(indicator in content for indicator in out_of_stock_indicators)
-                has_in_stock = any(indicator in content for indicator in in_stock_indicators)
-                
-                # If we see in-stock indicators and no out-of-stock, it's likely available
-                in_stock = has_in_stock and not has_out_of_stock
-                
+                response = self.session.get(url, timeout=10)
+            except Exception as exc:
+                msg = f"{url} request failed: {exc}"
+                print(msg)
+                marketplace_errors.append(msg)
+                continue
+
+            if response.status_code != 200:
+                msg = f"{url} HTTP {response.status_code}"
+                print(msg)
+                marketplace_errors.append(msg)
+                continue
+
+            content = response.text.lower()
+            has_out_of_stock = any(indicator in content for indicator in out_of_stock_indicators)
+            has_in_stock = any(indicator in content for indicator in in_stock_indicators)
+            in_stock = has_in_stock and not has_out_of_stock
+
+            if in_stock:
                 return {
-                    "in_stock": in_stock,
+                    "in_stock": True,
                     "timestamp": datetime.now().isoformat(),
-                    "url": NVIDIA_PRODUCT_PAGE,
-                    "price": "£1,799.00",  # Update if price changes
+                    "url": url,
+                    "price": "£1,799.00",
                     "method": "marketplace"
                 }
-            else:
-                return {
-                    "in_stock": False,
-                    "error": f"HTTP {response.status_code}",
-                    "timestamp": datetime.now().isoformat()
-                }
-            
-        except Exception as e:
-            print(f"Error checking stock: {e}")
-            return {"in_stock": False, "error": str(e), "timestamp": datetime.now().isoformat()}
 
-    def send_pushover_emergency(self, message: str):
+        if marketplace_errors and len(marketplace_errors) == len(NVIDIA_MARKETPLACE_URLS):
+            return {
+                "in_stock": False,
+                "error": "; ".join(marketplace_errors),
+                "timestamp": datetime.now().isoformat()
+            }
+
+        return {
+            "in_stock": False,
+            "timestamp": datetime.now().isoformat(),
+            "url": NVIDIA_PRODUCT_PAGE,
+            "price": "£1,799.00",
+            "method": "marketplace"
+        }
+
+    def send_pushover_emergency(self, message: str, url: str):
         """Send emergency Pushover notification that bypasses DND and repeats"""
-        if PUSHOVER_TOKEN and PUSHOVER_USER:
-            try:
-                response = requests.post(
-                    "https://api.pushover.net/1/messages.json",
-                    data={
-                        "token": PUSHOVER_TOKEN,
-                        "user": PUSHOVER_USER,
-                        "message": message,
-                        "title": "🚨 RTX 5090 IN STOCK NOW!",
-                        "priority": 2,  # Emergency priority
-                        "retry": 30,    # Retry every 30 seconds
-                        "expire": 3600, # Keep retrying for 1 hour
-                        "sound": "persistent",  # Most annoying sound
-                        "url": "https://www.nvidia.com/en-gb/shop/",
-                        "url_title": "Open NVIDIA Store"
-                    }
-                )
-                print(f"Pushover sent: {response.status_code}")
-            except Exception as e:
-                print(f"Pushover error: {e}")
-
-    def send_telegram_urgent(self, message: str):
-        """Send Telegram message with urgent formatting - sends multiple messages for maximum alert"""
-        if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
-            try:
-                urgent_text = f"🚨🚨🚨 RTX 5090 IN STOCK NOW! 🚨🚨🚨\n\n{message}\n\n🚨 BUY NOW! 🚨"
-                
-                # Send 3 urgent messages in rapid succession for maximum alert
-                for i in range(3):
-                    response = requests.post(
-                        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-                        json={
-                            "chat_id": TELEGRAM_CHAT_ID,
-                            "text": urgent_text,
-                            "parse_mode": "HTML",
-                            "disable_notification": False,  # Ensure notification sound
-                            "reply_markup": {
-                                "inline_keyboard": [[
-                                    {"text": "🚨 OPEN NVIDIA STORE NOW 🚨", "url": "https://www.nvidia.com/en-gb/shop/"}
-                                ]]
-                            }
-                        }
-                    )
-                    print(f"Telegram message {i+1} sent: {response.status_code}")
-                    if i < 2:  # Don't sleep after last message
-                        time.sleep(1)  # 1 second between messages
-            except Exception as e:
-                print(f"Telegram error: {e}")
-
-    def send_discord_alert(self, message: str):
-        """Send Discord webhook with @everyone ping"""
-        if DISCORD_WEBHOOK:
-            try:
-                response = requests.post(
-                    DISCORD_WEBHOOK,
-                    json={
-                        "content": "@everyone",  # Ping everyone
-                        "embeds": [{
-                            "title": "🚨 RTX 5090 FE IN STOCK!",
-                            "description": message,
-                            "color": 0xFF0000,  # Red for urgency
-                            "fields": [
-                                {
-                                    "name": "Direct Link",
-                                    "value": "[CLICK HERE NOW](https://www.nvidia.com/en-gb/shop/)",
-                                    "inline": False
-                                }
-                            ],
-                            "timestamp": datetime.now().isoformat()
-                        }]
-                    }
-                )
-                print(f"Discord sent: {response.status_code}")
-            except Exception as e:
-                print(f"Discord error: {e}")
-
-    def trigger_ifttt(self):
-        """Trigger IFTTT applet for additional actions (phone call, lights, etc)"""
-        if IFTTT_KEY:
-            try:
-                # Trigger multiple times for maximum alert
-                for i in range(2):
-                    response = requests.post(
-                        f"https://maker.ifttt.com/trigger/{IFTTT_EVENT}/with/key/{IFTTT_KEY}",
-                        json={
-                            "value1": "🚨 RTX 5090 IN STOCK NOW! 🚨",
-                            "value2": "https://www.nvidia.com/en-gb/shop/",
-                            "value3": f"URGENT - {datetime.now().strftime('%H:%M:%S')}"
-                        },
-                        timeout=5
-                    )
-                    print(f"IFTTT trigger {i+1} sent: {response.status_code}")
-                    if i < 1:
-                        time.sleep(2)  # 2 seconds between triggers
-            except Exception as e:
-                print(f"IFTTT error: {e}")
-
-    def send_sms_emergency(self, message: str):
-        """Send SMS that can bypass DND - WAKE UP ALERT"""
-        if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_PHONE_NUMBER:
+        if not (PUSHOVER_TOKEN and PUSHOVER_USER):
+            print("⚠️  Pushover credentials not configured.")
             return
-        
-        if not ALERT_PHONE_NUMBERS:
-            return
-        
+
         try:
-            from twilio.rest import Client
-            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-            
-            # Send SMS to all phone numbers
-            for phone in ALERT_PHONE_NUMBERS:
-                if phone.strip():
-                    try:
-                        sms_body = f"🚨 EMERGENCY: RTX 5090 IN STOCK NOW! 🚨\n\n{message}\n\nURGENT - BUY NOW!"
-                        msg = client.messages.create(
-                            body=sms_body,
-                            from_=TWILIO_PHONE_NUMBER,
-                            to=phone.strip()
-                        )
-                        print(f"SMS sent to {phone.strip()}: {msg.sid}")
-                    except Exception as e:
-                        print(f"SMS error for {phone.strip()}: {e}")
-        except ImportError:
-            print("Twilio not installed. Install with: pip install twilio")
-        except Exception as e:
-            print(f"SMS error: {e}")
-
-    def call_phone_emergency(self, message: str):
-        """Make phone call that WILL WAKE YOU UP - bypasses DND"""
-        if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_PHONE_NUMBER:
-            return
-        
-        if not ALERT_PHONE_NUMBERS:
-            return
-        
-        try:
-            from twilio.rest import Client
-            
-            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-            
-            # Create TwiML for the call message - will speak and wake you up
-            call_message = (
-                "Emergency alert. RTX 5090 graphics card is in stock now. "
-                "This is an urgent notification. Please check your phone immediately. "
-                "Repeat. RTX 5090 is available now. Buy immediately."
+            response = requests.post(
+                "https://api.pushover.net/1/messages.json",
+                data={
+                    "token": PUSHOVER_TOKEN,
+                    "user": PUSHOVER_USER,
+                    "message": message,
+                    "title": f"🚨 {PRODUCT_NAME} IN STOCK NOW!",
+                    "priority": 2,  # Emergency priority
+                    "retry": 30,    # Retry every 30 seconds
+                    "expire": 3600, # Keep retrying for 1 hour
+                    "sound": "persistent",
+                    "url": url,
+                    "url_title": "Open NVIDIA Store"
+                },
+                timeout=10
             )
-            
-            # Escape XML special characters
-            import xml.sax.saxutils
-            escaped_message = xml.sax.saxutils.escape(call_message)
-            
-            # Create TwiML response
-            twiml = f'''<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Say voice="alice" loop="3">{escaped_message}</Say>
-    <Pause length="2"/>
-    <Say voice="alice">{escaped_message}</Say>
-</Response>'''
-            
-            # Call each phone number MULTIPLE TIMES for maximum wake-up
-            for phone in ALERT_PHONE_NUMBERS:
-                if phone.strip():
-                    try:
-                        # Call 3 times with 5 second delay between calls
-                        for call_num in range(3):
-                            call = client.calls.create(
-                                twiml=twiml,
-                                to=phone.strip(),
-                                from_=TWILIO_PHONE_NUMBER,
-                                timeout=30  # Ring for 30 seconds
-                            )
-                            print(f"Emergency call {call_num+1} to {phone.strip()}: {call.sid}")
-                            if call_num < 2:
-                                time.sleep(5)  # Wait 5 seconds between calls
-                    except Exception as e:
-                        print(f"Call error for {phone.strip()}: {e}")
-        except ImportError:
-            print("Twilio not installed. Install with: pip install twilio")
-        except Exception as e:
-            print(f"Call error: {e}")
+            print(f"Pushover sent: {response.status_code}")
+        except Exception as exc:
+            print(f"Pushover error: {exc}")
 
-    def send_fcm_native_alert(self, message: str):
-        """Send native Android high-priority notification via FCM V1 API - bypasses DND"""
-        if not FCM_SERVICE_ACCOUNT_JSON or not FCM_PROJECT_ID or not FCM_DEVICE_TOKEN:
+    def send_small_alert(self, message: str):
+        """Send a low-priority heads-up via Pushover and console"""
+        print(f"[notice] {message}")
+        if not (PUSHOVER_TOKEN and PUSHOVER_USER):
             return
-        
+
         try:
-            import json as json_lib
-            from google.oauth2 import service_account
-            from google.auth.transport.requests import Request
-            
-            # Parse service account JSON
-            service_account_info = json_lib.loads(FCM_SERVICE_ACCOUNT_JSON)
-            
-            # Create credentials from service account
-            credentials = service_account.Credentials.from_service_account_info(
-                service_account_info,
-                scopes=['https://www.googleapis.com/auth/firebase.messaging']
+            requests.post(
+                "https://api.pushover.net/1/messages.json",
+                data={
+                    "token": PUSHOVER_TOKEN,
+                    "user": PUSHOVER_USER,
+                    "message": message,
+                    "title": f"{PRODUCT_NAME} monitor",
+                    "priority": 0,
+                    "sound": "gamelan"
+                },
+                timeout=10
             )
-            
-            # Get access token
-            credentials.refresh(Request())
-            access_token = credentials.token
-            
-            # FCM V1 API endpoint
-            fcm_url = f"https://fcm.googleapis.com/v1/projects/{FCM_PROJECT_ID}/messages:send"
-            
-            headers = {
-                "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/json"
-            }
-            
-            # High-priority notification payload (V1 API format)
-            payload = {
-                "message": {
-                    "token": FCM_DEVICE_TOKEN,
-                    "notification": {
-                        "title": "🚨 RTX 5090 IN STOCK NOW!",
-                        "body": message
-                    },
-                    "data": {
-                        "click_action": "OPEN_NVIDIA_STORE",
-                        "url": "https://www.nvidia.com/en-gb/shop/",
-                        "priority": "high"
-                    },
-                    "android": {
-                        "priority": "high",
-                        "notification": {
-                            "channel_id": "high_priority_alerts",
-                            "sound": "default",
-                            "priority": "high",
-                            "visibility": "public",
-                            "default_sound": True,
-                            "default_vibrate_timings": True,
-                            "default_light_settings": True,
-                            "notification_count": 1
-                        }
-                    },
-                    "apns": {
-                        "headers": {
-                            "apns-priority": "10"
-                        },
-                        "payload": {
-                            "aps": {
-                                "sound": "default",
-                                "badge": 1
-                            }
-                        }
-                    }
-                }
-            }
-            
-            # Send multiple notifications for maximum alert
-            for i in range(3):
-                response = requests.post(fcm_url, headers=headers, json=payload, timeout=5)
-                if response.status_code == 200:
-                    print(f"FCM native alert {i+1} sent successfully")
-                else:
-                    print(f"FCM error {i+1}: {response.status_code} - {response.text}")
-                if i < 2:
-                    time.sleep(1)  # 1 second between notifications
-                    
-        except ImportError:
-            print("Google auth libraries not installed. Install with: pip install google-auth google-auth-oauthlib google-auth-httplib2")
-        except Exception as e:
-            print(f"FCM error: {e}")
+        except Exception as exc:
+            print(f"Pushover notice error: {exc}")
 
     def send_all_alerts(self, stock_info: Dict[str, Any]):
-        """Send alerts through all configured channels"""
+        """Send alerts through the configured channel"""
+        url = stock_info.get("url", NVIDIA_PRODUCT_PAGE)
+        price = stock_info.get("price", "Check site")
         message = (
-            f"RTX 5090 FE IS IN STOCK!\n"
+            f"{PRODUCT_NAME} IS IN STOCK!\n"
             f"Time: {datetime.now().strftime('%H:%M:%S')}\n"
-            f"Price: {stock_info.get('price', 'Check site')}\n"
-            f"GO GO GO! → https://www.nvidia.com/en-gb/shop/"
+            f"Price: {price}\n"
+            f"Link: {url}"
         )
-        
-        # Send through all channels simultaneously - MAXIMUM ALERT!
-        # Native Android FCM alert FIRST - highest priority, bypasses DND
-        self.send_fcm_native_alert(message)
-        
-        # Phone calls - these will wake you up even if DND is on
-        self.call_phone_emergency(message)
-        
-        # SMS - can bypass DND if configured
-        self.send_sms_emergency(message)
-        
-        # Push notifications
-        self.send_pushover_emergency(message)
-        self.send_telegram_urgent(message)
-        self.send_discord_alert(message)
-        self.trigger_ifttt()
-        
+
+        self.send_pushover_emergency(message, url)
+
         # Also print to console with bell character
         print("\a" * 5)  # System beep
         print("=" * 50)
@@ -445,94 +204,75 @@ class StockMonitor:
 
     def run(self):
         """Main monitoring loop"""
-        print(f"Starting RTX 5090 stock monitor...")
+        print(f"Starting {PRODUCT_NAME} stock monitor...")
         print(f"Checking every {CHECK_INTERVAL} seconds")
         print(f"Current time: {datetime.now().strftime('%H:%M:%S')} UK")
-        
-        # Show configured notification services
-        configured_services = []
+
         if PUSHOVER_TOKEN and PUSHOVER_USER:
-            configured_services.append("Pushover")
-        if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
-            configured_services.append("Telegram")
-        if DISCORD_WEBHOOK:
-            configured_services.append("Discord")
-        if IFTTT_KEY:
-            configured_services.append("IFTTT")
-        
-        if configured_services:
-            print(f"Configured alerts: {', '.join(configured_services)}")
+            print("Configured alerts: Pushover")
         else:
-            print("⚠️  WARNING: No notification services configured! Set environment variables.")
-        
+            print("⚠️  WARNING: Pushover not configured - no notifications will fire.")
+
         print("-" * 50)
-        
+
         consecutive_errors = 0
         max_errors = 5
-        
+
         while True:
             try:
                 stock_info = self.check_stock()
                 current_status = stock_info.get("in_stock", False)
                 error = stock_info.get("error")
-                
+
                 if error:
                     consecutive_errors += 1
                     error_msg = f"[{datetime.now().strftime('%H:%M:%S')}] Error: {error} ({consecutive_errors}/{max_errors})"
                     print(error_msg)
-                    
-                    # Send small alert for errors/backoffs
+
                     if consecutive_errors == 1:
                         self.send_small_alert(f"Monitor error: {error}. Retrying in {BACKOFF_DELAY}s...")
                     elif consecutive_errors >= max_errors:
                         self.send_small_alert(f"Multiple errors ({consecutive_errors}). Backing off for {CHECK_INTERVAL * 5}s...")
-                    
+
                     if consecutive_errors >= max_errors:
                         print(f"⚠️  Too many consecutive errors. Backing off for {CHECK_INTERVAL * 5}s...")
                         time.sleep(CHECK_INTERVAL * 5)
                         consecutive_errors = 0
                     else:
-                        # 5 second backoff on error
                         time.sleep(BACKOFF_DELAY)
                     continue
                 else:
                     consecutive_errors = 0
-                
-                # Check if status changed to in stock
+
                 if current_status and self.last_status != current_status:
                     print(f"\n🎯 STOCK DETECTED at {datetime.now().strftime('%H:%M:%S')}")
                     print(f"Method: {stock_info.get('method', 'unknown')}")
                     self.send_all_alerts(stock_info)
-                    
-                    # Keep alerting every minute while in stock
-                    time.sleep(60)
                 else:
                     status_msg = "In stock" if current_status else "Out of stock"
                     print(f"[{datetime.now().strftime('%H:%M:%S')}] {status_msg} - checking again in {CHECK_INTERVAL}s...")
-                
+
                 self.last_status = current_status
                 time.sleep(CHECK_INTERVAL)
-                
+
             except KeyboardInterrupt:
                 print("\nMonitoring stopped by user")
                 break
-            except Exception as e:
+            except Exception as exc:
                 consecutive_errors += 1
-                error_msg = f"Error in main loop: {e} ({consecutive_errors}/{max_errors})"
+                error_msg = f"Error in main loop: {exc} ({consecutive_errors}/{max_errors})"
                 print(error_msg)
-                
-                # Send small alert for exceptions
+
                 if consecutive_errors == 1:
-                    self.send_small_alert(f"Monitor exception: {str(e)[:100]}. Backing off {BACKOFF_DELAY}s...")
+                    self.send_small_alert(f"Monitor exception: {str(exc)[:100]}. Backing off {BACKOFF_DELAY}s...")
                 elif consecutive_errors >= max_errors:
                     self.send_small_alert(f"Multiple exceptions ({consecutive_errors}). Backing off {CHECK_INTERVAL * 5}s...")
-                
+
                 if consecutive_errors >= max_errors:
                     print(f"⚠️  Too many consecutive errors. Backing off for {CHECK_INTERVAL * 5}s...")
                     time.sleep(CHECK_INTERVAL * 5)
                     consecutive_errors = 0
                 else:
-                    # 5 second backoff on exception
                     time.sleep(BACKOFF_DELAY)
 
 

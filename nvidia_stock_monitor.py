@@ -16,7 +16,7 @@ from typing import Dict, Any
 sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure') else None
 
 # Monitor configuration
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "15"))  # seconds between checks (default 15s)
+CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "30"))  # seconds between checks (default 30s)
 BACKOFF_DELAY = int(os.getenv("BACKOFF_DELAY", "5"))  # seconds to wait on error before retry
 PRODUCT_NAME = "NVIDIA RTX 5090 FE"
 

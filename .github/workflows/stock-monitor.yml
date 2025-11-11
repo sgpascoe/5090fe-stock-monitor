@@ -30,20 +30,7 @@ jobs:
         env:
           PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
           PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          IFTTT_KEY: ${{ secrets.IFTTT_KEY }}
-          IFTTT_EVENT: ${{ secrets.IFTTT_EVENT }}
-          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
-          ALERT_PHONE_NUMBER: ${{ secrets.ALERT_PHONE_NUMBER }}
-          ALERT_PHONE_NUMBERS: ${{ secrets.ALERT_PHONE_NUMBERS }}
-          FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
-          FCM_PROJECT_ID: ${{ secrets.FCM_PROJECT_ID }}
-          FCM_DEVICE_TOKEN: ${{ secrets.FCM_DEVICE_TOKEN }}
-          CHECK_INTERVAL: 15
+          CHECK_INTERVAL: 30
           BACKOFF_DELAY: 5
         run: |
           timeout 60 python -u nvidia_stock_monitor.py || true

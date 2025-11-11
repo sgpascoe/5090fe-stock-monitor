@@ -17,22 +17,10 @@ if __name__ == "__main__":
     monitor = StockMonitor()
     
     # Check notification services configuration
-    has_notifications = False
-    if os.getenv("PUSHOVER_TOKEN") and os.getenv("PUSHOVER_USER"):
-        has_notifications = True
-    if os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"):
-        has_notifications = True
-    if os.getenv("DISCORD_WEBHOOK"):
-        has_notifications = True
-    if os.getenv("IFTTT_KEY"):
-        has_notifications = True
-    if os.getenv("TWILIO_ACCOUNT_SID") and os.getenv("TWILIO_AUTH_TOKEN"):
-        has_notifications = True
-    if os.getenv("FCM_SERVICE_ACCOUNT_JSON") and os.getenv("FCM_PROJECT_ID") and os.getenv("FCM_DEVICE_TOKEN"):
-        has_notifications = True
+    has_notifications = os.getenv("PUSHOVER_TOKEN") and os.getenv("PUSHOVER_USER")
     
     if not has_notifications:
-        print("[WARNING] No notification services configured! Set GitHub Secrets.")
+        print("[WARNING] Pushover not configured! Set PUSHOVER_TOKEN and PUSHOVER_USER GitHub Secrets.")
     
     # Run a single check
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Checking stock...")

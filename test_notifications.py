@@ -9,30 +9,20 @@ import sys
 from nvidia_stock_monitor import StockMonitor
 
 def test_notifications():
-    """Test all configured notification services"""
+    """Test Pushover notification service"""
     monitor = StockMonitor()
     
-    # Show configured services
-    configured = []
-    if os.getenv("PUSHOVER_TOKEN") and os.getenv("PUSHOVER_USER"):
-        configured.append("Pushover")
-    if os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"):
-        configured.append("Telegram")
-    if os.getenv("DISCORD_WEBHOOK"):
-        configured.append("Discord")
-    if os.getenv("IFTTT_KEY"):
-        configured.append("IFTTT")
+    # Check Pushover configuration
+    has_pushover = os.getenv("PUSHOVER_TOKEN") and os.getenv("PUSHOVER_USER")
     
-    if not configured:
-        print("[ERROR] No notification services configured!")
-        print("Set at least one environment variable:")
-        print("  - DISCORD_WEBHOOK (easiest)")
-        print("  - TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID")
-        print("  - PUSHOVER_TOKEN + PUSHOVER_USER")
-        print("  - IFTTT_KEY")
+    if not has_pushover:
+        print("[ERROR] Pushover not configured!")
+        print("Set environment variables:")
+        print("  - PUSHOVER_TOKEN")
+        print("  - PUSHOVER_USER")
         return False
     
-    print(f"[OK] Testing notifications: {', '.join(configured)}")
+    print("[OK] Testing Pushover notifications...")
     
     # Send test alert
     test_info = {

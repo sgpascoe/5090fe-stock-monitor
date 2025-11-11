@@ -12,7 +12,7 @@ import os
 from typing import Dict, Any
 
 # Configuration - Use environment variables for cloud deployment
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "15"))  # seconds between checks (15s default)
+CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "20"))  # seconds between checks (20s default, 15-30s range)
 BACKOFF_DELAY = int(os.getenv("BACKOFF_DELAY", "5"))  # seconds to wait on error before retry
 PRODUCT_NAME = "NVIDIA RTX 5090 FE"
 

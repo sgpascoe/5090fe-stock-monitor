@@ -9,7 +9,11 @@ import time
 from datetime import datetime
 import json
 import os
+import sys
 from typing import Dict, Any
+
+# Force unbuffered output for GitHub Actions
+sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure') else None
 
 # Monitor configuration
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "15"))  # seconds between checks (default 15s)
@@ -204,16 +208,16 @@ class StockMonitor:
 
     def run(self):
         """Main monitoring loop"""
-        print(f"Starting {PRODUCT_NAME} stock monitor...")
-        print(f"Checking every {CHECK_INTERVAL} seconds")
-        print(f"Current time: {datetime.now().strftime('%H:%M:%S')} UK")
+        print(f"Starting {PRODUCT_NAME} stock monitor...", flush=True)
+        print(f"Checking every {CHECK_INTERVAL} seconds", flush=True)
+        print(f"Current time: {datetime.now().strftime('%H:%M:%S')} UK", flush=True)
 
         if PUSHOVER_TOKEN and PUSHOVER_USER:
-            print("Configured alerts: Pushover")
+            print("Configured alerts: Pushover", flush=True)
         else:
-            print("⚠️  WARNING: Pushover not configured - no notifications will fire.")
+            print("[WARNING] Pushover not configured - no notifications will fire.", flush=True)
 
-        print("-" * 50)
+        print("-" * 50, flush=True)
 
         consecutive_errors = 0
         max_errors = 5
@@ -245,12 +249,12 @@ class StockMonitor:
                     consecutive_errors = 0
 
                 if current_status and self.last_status != current_status:
-                    print(f"\n🎯 STOCK DETECTED at {datetime.now().strftime('%H:%M:%S')}")
-                    print(f"Method: {stock_info.get('method', 'unknown')}")
+                    print(f"\n[STOCK DETECTED] at {datetime.now().strftime('%H:%M:%S')}", flush=True)
+                    print(f"Method: {stock_info.get('method', 'unknown')}", flush=True)
                     self.send_all_alerts(stock_info)
                 else:
                     status_msg = "In stock" if current_status else "Out of stock"
-                    print(f"[{datetime.now().strftime('%H:%M:%S')}] {status_msg} - checking again in {CHECK_INTERVAL}s...")
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] {status_msg} - checking again in {CHECK_INTERVAL}s...", flush=True)
 
                 self.last_status = current_status
                 time.sleep(CHECK_INTERVAL)

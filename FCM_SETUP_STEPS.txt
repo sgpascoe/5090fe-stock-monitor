@@ -1,0 +1,65 @@
+FCM SETUP - STEP BY STEP GUIDE
+===============================
+
+You're currently on the Android app registration screen. Here's what to do:
+
+STEP 1: Complete Android App Registration (You're here!)
+---------------------------------------------------------
+On the screen you see:
+- "Download and then add config file"
+- "Add Firebase SDK"
+- "Next steps"
+
+1. Click "Download google-services.json"
+   - This downloads a file you'll need for the Android app
+   - Save it somewhere (you'll use it when building the Android app)
+
+2. Click "Next" to continue through the setup
+   - You can skip the "Add Firebase SDK" step for now
+   - We'll add that when building the Android app
+
+STEP 2: Get Server Key (After app registration)
+------------------------------------------------
+Once you've completed the Android app registration:
+
+1. Look at the LEFT SIDEBAR in Firebase Console
+2. Click the GEAR ICON ⚙️ next to "Project Overview"
+   - It's at the top of the left sidebar
+   - Or click "Project Settings" text
+
+3. In Project Settings:
+   - Click the "Cloud Messaging" tab at the top
+   - You'll see "Server key" - COPY THIS
+   - This is your FCM_SERVER_KEY
+
+STEP 3: Alternative Way to Get Server Key
+------------------------------------------
+If you can't find the gear icon:
+
+1. Look at the top navigation bar
+2. Click "Project Settings" (text link, not icon)
+3. Or go directly to:
+   https://console.firebase.google.com/project/YOUR_PROJECT_ID/settings/cloudmessaging
+   (Replace YOUR_PROJECT_ID with your actual project ID)
+
+STEP 4: Get Device Token
+-------------------------
+After you have the Server Key:
+
+1. Build the Android app (see FCM_SETUP.txt for code)
+2. Add the google-services.json file to your Android app
+3. Run the app on your phone
+4. The app will display your FCM token
+5. Copy this token (this is FCM_DEVICE_TOKEN)
+
+QUICK CHECKLIST:
+-----------------
+☐ Download google-services.json
+☐ Complete Android app registration
+☐ Go to Project Settings (gear icon or "Project Settings" link)
+☐ Cloud Messaging tab → Copy Server key
+☐ Build Android app and get Device Token
+☐ Add both to GitHub Secrets
+
+Need help with any step? Let me know!
+

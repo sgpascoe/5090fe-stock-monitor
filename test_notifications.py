@@ -24,7 +24,7 @@ def test_notifications():
         configured.append("IFTTT")
     
     if not configured:
-        print("❌ No notification services configured!")
+        print("[ERROR] No notification services configured!")
         print("Set at least one environment variable:")
         print("  - DISCORD_WEBHOOK (easiest)")
         print("  - TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID")
@@ -32,7 +32,7 @@ def test_notifications():
         print("  - IFTTT_KEY")
         return False
     
-    print(f"✅ Testing notifications: {', '.join(configured)}")
+    print(f"[OK] Testing notifications: {', '.join(configured)}")
     
     # Send test alert
     test_info = {
@@ -45,7 +45,7 @@ def test_notifications():
     
     print("\nSending test alerts...")
     monitor.send_all_alerts(test_info)
-    print("\n✅ Test alerts sent! Check your notifications.")
+    print("\n[OK] Test alerts sent! Check your notifications.")
     return True
 
 if __name__ == "__main__":

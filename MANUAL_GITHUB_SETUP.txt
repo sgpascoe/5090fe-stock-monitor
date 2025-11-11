@@ -1,0 +1,42 @@
+MANUAL GITHUB SECRETS SETUP
+============================
+
+Since GitHub links aren't working, here's how to add secrets manually:
+
+STEP 1: Go to GitHub
+--------------------
+1. Go to: https://github.com
+2. Sign in
+3. Find your repository (search for "5090fe" or "stock-monitor")
+4. Or create new repo if needed
+
+STEP 2: Add Secrets
+-------------------
+1. In your repository, click "Settings" (top menu)
+2. In left sidebar, click "Secrets and variables" → "Actions"
+3. Click "New repository secret"
+
+Add these TWO secrets:
+
+Secret 1:
+- Name: PUSHOVER_USER
+- Value: uevm87p2unp2x3b7yi1nsgm7xj2w4g
+- Click "Add secret"
+
+Secret 2:
+- Name: PUSHOVER_TOKEN  
+- Value: afwtah7mztb9nb4nd2fvtr2i8fuwqc
+- Click "Add secret"
+
+STEP 3: Verify
+--------------
+After adding, your GitHub Actions workflow will automatically use these!
+
+The workflow runs every 5 minutes and will send Pushover alerts when stock is detected.
+
+ALTERNATIVE: Use GitHub CLI
+---------------------------
+If you have GitHub CLI installed:
+  gh secret set PUSHOVER_USER --body "uevm87p2unp2x3b7yi1nsgm7xj2w4g"
+  gh secret set PUSHOVER_TOKEN --body "afwtah7mztb9nb4nd2fvtr2i8fuwqc"
+

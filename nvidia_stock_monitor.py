@@ -12,8 +12,8 @@ import os
 from typing import Dict, Any
 
 # Monitor configuration
-CHECK_INTERVAL = 15  # seconds between checks (fixed per requirement)
-BACKOFF_DELAY = 5  # seconds to wait on error before retry
+CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "15"))  # seconds between checks (default 15s)
+BACKOFF_DELAY = int(os.getenv("BACKOFF_DELAY", "5"))  # seconds to wait on error before retry
 PRODUCT_NAME = "NVIDIA RTX 5090 FE"
 
 # NVIDIA API endpoints

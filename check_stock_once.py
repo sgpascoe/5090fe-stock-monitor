@@ -8,43 +8,31 @@ import sys
 import os
 from datetime import datetime
 
-# Import the StockMonitor class and notification config
+# Import the StockMonitor class
 sys.path.insert(0, os.path.dirname(__file__))
-from nvidia_stock_monitor import (
-    StockMonitor,
-    PUSHOVER_TOKEN,
-    PUSHOVER_USER,
-    TELEGRAM_BOT_TOKEN,
-    TELEGRAM_CHAT_ID,
-    DISCORD_WEBHOOK,
-    IFTTT_KEY,
-    TWILIO_ACCOUNT_SID,
-    TWILIO_AUTH_TOKEN,
-    FCM_SERVICE_ACCOUNT_JSON,
-    FCM_PROJECT_ID,
-    FCM_DEVICE_TOKEN
-)
+from nvidia_stock_monitor import StockMonitor
+import nvidia_stock_monitor as nsm
 
 if __name__ == "__main__":
     monitor = StockMonitor()
     
     # Check notification services configuration
     has_notifications = False
-    if PUSHOVER_TOKEN and PUSHOVER_USER:
+    if os.getenv("PUSHOVER_TOKEN") and os.getenv("PUSHOVER_USER"):
         has_notifications = True
-    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+    if os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"):
         has_notifications = True
-    if DISCORD_WEBHOOK:
+    if os.getenv("DISCORD_WEBHOOK"):
         has_notifications = True
-    if IFTTT_KEY:
+    if os.getenv("IFTTT_KEY"):
         has_notifications = True
-    if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
+    if os.getenv("TWILIO_ACCOUNT_SID") and os.getenv("TWILIO_AUTH_TOKEN"):
         has_notifications = True
-    if FCM_SERVICE_ACCOUNT_JSON and FCM_PROJECT_ID and FCM_DEVICE_TOKEN:
+    if os.getenv("FCM_SERVICE_ACCOUNT_JSON") and os.getenv("FCM_PROJECT_ID") and os.getenv("FCM_DEVICE_TOKEN"):
         has_notifications = True
     
     if not has_notifications:
-        print("⚠️  WARNING: No notification services configured! Set GitHub Secrets.")
+        print("[WARNING] No notification services configured! Set GitHub Secrets.")
     
     # Run a single check
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Checking stock...")

@@ -12,13 +12,15 @@ import os
 from typing import Dict, Any
 
 # Configuration - Use environment variables for cloud deployment
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "30"))  # seconds between checks
+CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "15"))  # seconds between checks (15s default)
+BACKOFF_DELAY = int(os.getenv("BACKOFF_DELAY", "5"))  # seconds to wait on error before retry
 PRODUCT_NAME = "NVIDIA RTX 5090 FE"
 
 # NVIDIA API endpoints
 NVIDIA_API_URL = "https://api.nvidia.partners/edge/product/search?page=1&limit=9&locale=en-gb&category=GPU&gpu=RTX%205090"
 NVIDIA_STORE_URL = "https://www.nvidia.com/en-gb/shop/geforce/gpu/?page=1&limit=100&locale=en-gb&category=GPU&gpu=RTX%205090"
-NVIDIA_PRODUCT_PAGE = "https://www.nvidia.com/en-gb/geforce/graphics-cards/40-series/rtx-5090-5090ti/"
+NVIDIA_MARKETPLACE_URL = "https://marketplace.nvidia.com/en-gb/consumer/graphics-cards/nvidia-geforce-rtx-5090-borderlands-4-game-bundle/"
+NVIDIA_PRODUCT_PAGE = "https://marketplace.nvidia.com/en-gb/consumer/graphics-cards/nvidia-geforce-rtx-5090-borderlands-4-game-bundle/"
 
 # Notification Services Configuration - from environment variables
 PUSHOVER_TOKEN = os.getenv("PUSHOVER_TOKEN", "")
@@ -93,8 +95,8 @@ class StockMonitor:
             except Exception as e:
                 print(f"API check failed: {e}")
             
-            # Method 2: Check store page HTML
-            response = self.session.get(NVIDIA_STORE_URL, timeout=10)
+            # Method 2: Check marketplace page HTML (primary check)
+            response = self.session.get(NVIDIA_MARKETPLACE_URL, timeout=10)
             
             if response.status_code == 200:
                 content = response.text.lower()
@@ -105,14 +107,16 @@ class StockMonitor:
                     "notify me",
                     "coming soon",
                     "unavailable",
-                    "sold out"
+                    "sold out",
+                    "notify when available"
                 ]
                 
                 in_stock_indicators = [
                     "add to cart",
                     "buy now",
                     "add to basket",
-                    "purchase"
+                    "purchase",
+                    "add to bag"
                 ]
                 
                 has_out_of_stock = any(indicator in content for indicator in out_of_stock_indicators)
@@ -126,7 +130,7 @@ class StockMonitor:
                     "timestamp": datetime.now().isoformat(),
                     "url": NVIDIA_PRODUCT_PAGE,
                     "price": "£1,799.00",  # Update if price changes
-                    "method": "html"
+                    "method": "marketplace"
                 }
             else:
                 return {
@@ -474,13 +478,22 @@ class StockMonitor:
                 
                 if error:
                     consecutive_errors += 1
-                    print(f"[{datetime.now().strftime('%H:%M:%S')}] Error: {error} ({consecutive_errors}/{max_errors})")
+                    error_msg = f"[{datetime.now().strftime('%H:%M:%S')}] Error: {error} ({consecutive_errors}/{max_errors})"
+                    print(error_msg)
+                    
+                    # Send small alert for errors/backoffs
+                    if consecutive_errors == 1:
+                        self.send_small_alert(f"Monitor error: {error}. Retrying in {BACKOFF_DELAY}s...")
+                    elif consecutive_errors >= max_errors:
+                        self.send_small_alert(f"Multiple errors ({consecutive_errors}). Backing off for {CHECK_INTERVAL * 5}s...")
+                    
                     if consecutive_errors >= max_errors:
-                        print("⚠️  Too many consecutive errors. Waiting longer before retry...")
+                        print(f"⚠️  Too many consecutive errors. Backing off for {CHECK_INTERVAL * 5}s...")
                         time.sleep(CHECK_INTERVAL * 5)
                         consecutive_errors = 0
                     else:
-                        time.sleep(CHECK_INTERVAL)
+                        # 5 second backoff on error
+                        time.sleep(BACKOFF_DELAY)
                     continue
                 else:
                     consecutive_errors = 0
@@ -505,13 +518,22 @@ class StockMonitor:
                 break
             except Exception as e:
                 consecutive_errors += 1
-                print(f"Error in main loop: {e} ({consecutive_errors}/{max_errors})")
+                error_msg = f"Error in main loop: {e} ({consecutive_errors}/{max_errors})"
+                print(error_msg)
+                
+                # Send small alert for exceptions
+                if consecutive_errors == 1:
+                    self.send_small_alert(f"Monitor exception: {str(e)[:100]}. Backing off {BACKOFF_DELAY}s...")
+                elif consecutive_errors >= max_errors:
+                    self.send_small_alert(f"Multiple exceptions ({consecutive_errors}). Backing off {CHECK_INTERVAL * 5}s...")
+                
                 if consecutive_errors >= max_errors:
-                    print("⚠️  Too many consecutive errors. Waiting longer before retry...")
+                    print(f"⚠️  Too many consecutive errors. Backing off for {CHECK_INTERVAL * 5}s...")
                     time.sleep(CHECK_INTERVAL * 5)
                     consecutive_errors = 0
                 else:
-                    time.sleep(CHECK_INTERVAL)
+                    # 5 second backoff on exception
+                    time.sleep(BACKOFF_DELAY)
 
 
 if __name__ == "__main__":

@@ -19,7 +19,9 @@ from nvidia_stock_monitor import (
     DISCORD_WEBHOOK,
     IFTTT_KEY,
     TWILIO_ACCOUNT_SID,
-    TWILIO_AUTH_TOKEN
+    TWILIO_AUTH_TOKEN,
+    FCM_SERVER_KEY,
+    FCM_DEVICE_TOKEN
 )
 
 if __name__ == "__main__":
@@ -36,6 +38,8 @@ if __name__ == "__main__":
     if IFTTT_KEY:
         has_notifications = True
     if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
+        has_notifications = True
+    if FCM_SERVER_KEY and FCM_DEVICE_TOKEN:
         has_notifications = True
     
     if not has_notifications:

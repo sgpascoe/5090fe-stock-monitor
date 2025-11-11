@@ -44,6 +44,10 @@ ALERT_PHONE_NUMBERS = os.getenv("ALERT_PHONE_NUMBERS", "").split(",") if os.gete
 if ALERT_PHONE_NUMBER:
     ALERT_PHONE_NUMBERS.append(ALERT_PHONE_NUMBER)
 
+# Firebase Cloud Messaging (FCM) - Native Android High-Priority Alerts
+FCM_SERVER_KEY = os.getenv("FCM_SERVER_KEY", "")
+FCM_DEVICE_TOKEN = os.getenv("FCM_DEVICE_TOKEN", "")  # Your Android device FCM token
+
 
 class StockMonitor:
     def __init__(self):
@@ -317,6 +321,66 @@ class StockMonitor:
         except Exception as e:
             print(f"Call error: {e}")
 
+    def send_fcm_native_alert(self, message: str):
+        """Send native Android high-priority notification via FCM - bypasses DND"""
+        if not FCM_SERVER_KEY or not FCM_DEVICE_TOKEN:
+            return
+        
+        try:
+            # FCM API endpoint
+            fcm_url = "https://fcm.googleapis.com/fcm/send"
+            
+            headers = {
+                "Authorization": f"key={FCM_SERVER_KEY}",
+                "Content-Type": "application/json"
+            }
+            
+            # High-priority notification payload that bypasses DND
+            payload = {
+                "to": FCM_DEVICE_TOKEN,
+                "priority": "high",  # High priority - can bypass DND
+                "notification": {
+                    "title": "🚨 RTX 5090 IN STOCK NOW!",
+                    "body": message,
+                    "sound": "default",
+                    "channel_id": "high_priority_alerts",  # High-priority channel
+                    "priority": "high",
+                    "visibility": "public"
+                },
+                "data": {
+                    "click_action": "OPEN_NVIDIA_STORE",
+                    "url": "https://www.nvidia.com/en-gb/shop/",
+                    "priority": "high",
+                    "wake_screen": True,
+                    "force_wake": True
+                },
+                "android": {
+                    "priority": "high",
+                    "notification": {
+                        "channel_id": "high_priority_alerts",
+                        "sound": "default",
+                        "priority": "high",
+                        "visibility": "public",
+                        "default_sound": True,
+                        "default_vibrate_timings": True,
+                        "default_light_settings": True
+                    }
+                }
+            }
+            
+            # Send multiple notifications for maximum alert
+            for i in range(3):
+                response = requests.post(fcm_url, headers=headers, json=payload, timeout=5)
+                if response.status_code == 200:
+                    print(f"FCM native alert {i+1} sent successfully")
+                else:
+                    print(f"FCM error {i+1}: {response.status_code} - {response.text}")
+                if i < 2:
+                    time.sleep(1)  # 1 second between notifications
+                    
+        except Exception as e:
+            print(f"FCM error: {e}")
+
     def send_all_alerts(self, stock_info: Dict[str, Any]):
         """Send alerts through all configured channels"""
         message = (
@@ -327,7 +391,10 @@ class StockMonitor:
         )
         
         # Send through all channels simultaneously - MAXIMUM ALERT!
-        # Phone calls FIRST - these will wake you up even if DND is on
+        # Native Android FCM alert FIRST - highest priority, bypasses DND
+        self.send_fcm_native_alert(message)
+        
+        # Phone calls - these will wake you up even if DND is on
         self.call_phone_emergency(message)
         
         # SMS - can bypass DND if configured

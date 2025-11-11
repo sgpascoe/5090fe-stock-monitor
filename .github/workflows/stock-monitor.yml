@@ -38,6 +38,8 @@ jobs:
           TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
           ALERT_PHONE_NUMBER: ${{ secrets.ALERT_PHONE_NUMBER }}
           ALERT_PHONE_NUMBERS: ${{ secrets.ALERT_PHONE_NUMBERS }}
+          FCM_SERVER_KEY: ${{ secrets.FCM_SERVER_KEY }}
+          FCM_DEVICE_TOKEN: ${{ secrets.FCM_DEVICE_TOKEN }}
         run: |
           python check_stock_once.py
 

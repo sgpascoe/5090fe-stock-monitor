@@ -1,0 +1,190 @@
+FCM NATIVE ANDROID ALERT SETUP
+===============================
+
+Firebase Cloud Messaging (FCM) sends NATIVE Android notifications with HIGH PRIORITY
+that can bypass Do Not Disturb and wake your phone!
+
+SETUP STEPS:
+------------
+
+1. CREATE FIREBASE PROJECT (FREE):
+   - Go to: https://console.firebase.google.com/
+   - Click "Add project"
+   - Name it (e.g., "RTX Stock Alert")
+   - Disable Google Analytics (optional)
+   - Create project
+
+2. ADD ANDROID APP:
+   - Click "Add app" → Android icon
+   - Package name: com.rtxstock.alert (or your own)
+   - Register app
+   - Download google-services.json (save this for Android app)
+
+3. GET SERVER KEY:
+   - Project Settings → Cloud Messaging tab
+   - Copy "Server key" (this is FCM_SERVER_KEY)
+
+4. CREATE SIMPLE ANDROID APP:
+   
+   You need a minimal Android app that:
+   - Receives FCM notifications
+   - Creates a high-priority notification channel
+   - Can bypass DND
+   
+   I'll create the Android app code for you (see below)
+
+5. GET DEVICE TOKEN:
+   - Run the Android app on your phone
+   - It will display your FCM token
+   - Copy this token (this is FCM_DEVICE_TOKEN)
+
+6. ADD TO GITHUB SECRETS:
+   - FCM_SERVER_KEY = your Firebase server key
+   - FCM_DEVICE_TOKEN = your device token from the app
+
+ANDROID APP CODE:
+-----------------
+
+Create a simple Android app with these files:
+
+MainActivity.java (or Kotlin):
+```java
+package com.rtxstock.alert;
+
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.widget.TextView;
+import androidx.appcompat.app.AppCompatActivity;
+import com.google.firebase.messaging.FirebaseMessaging;
+
+public class MainActivity extends AppCompatActivity {
+    private static final String CHANNEL_ID = "high_priority_alerts";
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        
+        // Create high-priority notification channel
+        createNotificationChannel();
+        
+        // Get and display FCM token
+        FirebaseMessaging.getInstance().getToken()
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    String token = task.getResult();
+                    TextView tokenView = findViewById(R.id.token);
+                    tokenView.setText("FCM Token:\n" + token);
+                }
+            });
+    }
+    
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "High Priority Alerts",
+                NotificationManager.IMPORTANCE_HIGH  // HIGH priority!
+            );
+            channel.setDescription("RTX 5090 stock alerts");
+            channel.enableLights(true);
+            channel.enableVibration(true);
+            channel.setShowBadge(true);
+            
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            manager.createNotificationChannel(channel);
+        }
+    }
+}
+```
+
+FirebaseMessagingService.java:
+```java
+package com.rtxstock.alert;
+
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Intent;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import androidx.core.app.NotificationCompat;
+import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.firebase.messaging.RemoteMessage;
+
+public class MyFirebaseMessagingService extends FirebaseMessagingService {
+    private static final String CHANNEL_ID = "high_priority_alerts";
+    
+    @Override
+    public void onMessageReceived(RemoteMessage remoteMessage) {
+        // Create high-priority notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(remoteMessage.getNotification().getTitle())
+            .setContentText(remoteMessage.getNotification().getBody())
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(Notification.DEFAULT_ALL)
+            .setAutoCancel(true)
+            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))
+            .setVibrate(new long[]{0, 500, 500, 500})
+            .setFullScreenIntent(createPendingIntent(), true);  // Wake screen!
+        
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        manager.notify(0, builder.build());
+    }
+    
+    private PendingIntent createPendingIntent() {
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return PendingIntent.getActivity(this, 0, intent, 
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+}
+```
+
+AndroidManifest.xml (add these permissions):
+```xml
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="android.permission.WAKE_LOCK"/>
+<uses-permission android:name="android.permission.VIBRATE"/>
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+<service
+    android:name=".MyFirebaseMessagingService"
+    android:exported="false">
+    <intent-filter>
+        <action android:name="com.google.firebase.MESSAGING_EVENT" />
+    </intent-filter>
+</service>
+```
+
+CONFIGURE ANDROID TO BYPASS DND:
+----------------------------------
+1. Settings → Apps → [Your App Name] → Notifications
+2. Enable "Override Do Not Disturb"
+3. Set notification importance to "Urgent"
+4. Enable sound and vibration
+5. Disable battery optimization
+
+WHAT HAPPENS:
+-------------
+When stock is detected:
+✅ Native Android notification with HIGH priority
+✅ Wakes screen (fullScreenIntent)
+✅ Plays sound and vibrates
+✅ Can bypass DND if configured
+✅ Sent 3 times for maximum alert
+
+This is a NATIVE Android alert - no third-party apps needed!
+
+ALTERNATIVE: Use existing FCM apps
+-----------------------------------
+If you don't want to build an app, you can use:
+- Pushbullet (supports FCM)
+- Join by joaoapps (supports FCM)
+- Or any FCM-compatible notification app
+
+But a custom app gives you full control over priority and DND bypass!
+

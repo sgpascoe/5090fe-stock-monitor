@@ -1,0 +1,51 @@
+name: RTX 5090 Stock Check
+
+on:
+  schedule:
+    # Run every minute (GitHub Actions allows this)
+    - cron: '*/1 * * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  check-stock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2  # Prevent hanging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Run stock check
+        env:
+          CHECK_INTERVAL: 1  # Check once per run
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
+          PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
+          IFTTT_KEY: ${{ secrets.IFTTT_KEY }}
+          IFTTT_EVENT: ${{ secrets.IFTTT_EVENT }}
+        run: |
+          # Run a single check (modify script to exit after one check for GitHub Actions)
+          timeout 60 python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from nvidia_stock_monitor import StockMonitor
+          monitor = StockMonitor()
+          stock_info = monitor.check_stock()
+          if stock_info.get('in_stock'):
+              monitor.send_all_alerts(stock_info)
+              sys.exit(1)  # Exit with error to trigger notification
+          else:
+              print('Out of stock')
+              sys.exit(0)
+          "
+

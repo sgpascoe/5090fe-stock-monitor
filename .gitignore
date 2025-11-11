@@ -2,6 +2,7 @@
 google-services.json
 *-credentials.json
 *service-account*.json
+*firebase-adminsdk*.json
 
 # Environment files
 .env

@@ -14,13 +14,13 @@ $ProgressPreference = "SilentlyContinue"
 
 # Get API key if not provided
 if (-not $ApiKey) {
-    Write-Host "🔑 Render API Key required!" -ForegroundColor Yellow
+    Write-Host "Render API Key required!" -ForegroundColor Yellow
     Write-Host "Get it from: https://dashboard.render.com/account/api-keys" -ForegroundColor Cyan
     $ApiKey = Read-Host "Enter your Render API Key"
 }
 
 if (-not $ApiKey) {
-    Write-Host "❌ API Key is required!" -ForegroundColor Red
+    Write-Host "API Key is required!" -ForegroundColor Red
     exit 1
 }
 
@@ -34,19 +34,19 @@ $headers = @{
     "Content-Type" = "application/json"
 }
 
-Write-Host "🚀 Deploying RTX 5090 Stock Monitor to Render (Private)..." -ForegroundColor Cyan
+Write-Host "Deploying RTX 5090 Stock Monitor to Render..." -ForegroundColor Cyan
 Write-Host "Repository: $RepoUrl" -ForegroundColor Gray
 Write-Host "Branch: $Branch" -ForegroundColor Gray
 
 try {
     # Get owner ID (your account)
-    Write-Host "`n📋 Getting account information..." -ForegroundColor Yellow
+    Write-Host "`nGetting account information..." -ForegroundColor Yellow
     $ownerResponse = Invoke-RestMethod -Uri "$baseUrl/owners" -Headers $headers -Method Get
     $ownerId = $ownerResponse[0].owner.id
-    Write-Host "✓ Account ID: $ownerId" -ForegroundColor Green
+    Write-Host "Account ID: $ownerId" -ForegroundColor Green
     
-    # Create background worker service (private)
-    Write-Host "`n🔧 Creating private background worker service..." -ForegroundColor Yellow
+    # Create background worker service
+    Write-Host "`nCreating background worker service..." -ForegroundColor Yellow
     
     $serviceBody = @{
         type = "worker"
@@ -61,19 +61,19 @@ try {
         envVars = @(
             @{
                 key = "CHECK_INTERVAL"
-                value = "30"
+                value = "15"
             }
         )
     } | ConvertTo-Json -Depth 10
     
     Write-Host "Sending request to Render API..." -ForegroundColor Gray
     $service = Invoke-RestMethod -Uri "$baseUrl/services" -Headers $headers -Method Post -Body $serviceBody
-    Write-Host "✓ Private service created successfully!" -ForegroundColor Green
+    Write-Host "Service created successfully!" -ForegroundColor Green
     Write-Host "  Service ID: $($service.service.id)" -ForegroundColor Gray
     Write-Host "  Service URL: https://dashboard.render.com/web/$($service.service.id)" -ForegroundColor Cyan
     
-    Write-Host "`n✅ Deployment initiated!" -ForegroundColor Green
-    Write-Host "`n📝 Next steps:" -ForegroundColor Cyan
+    Write-Host "`nDeployment initiated!" -ForegroundColor Green
+    Write-Host "`nNext steps:" -ForegroundColor Cyan
     Write-Host "1. Go to: https://dashboard.render.com/web/$($service.service.id)" -ForegroundColor White
     Write-Host "2. Add environment variables for notifications:" -ForegroundColor White
     Write-Host "   - DISCORD_WEBHOOK (recommended - easiest)" -ForegroundColor Gray
@@ -82,7 +82,7 @@ try {
     Write-Host "3. The service will start automatically!" -ForegroundColor White
     
 } catch {
-    Write-Host "`n❌ Error: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "`nError: $($_.Exception.Message)" -ForegroundColor Red
     if ($_.ErrorDetails.Message) {
         $errorDetails = $_.ErrorDetails.Message | ConvertFrom-Json -ErrorAction SilentlyContinue
         if ($errorDetails) {
@@ -91,6 +91,6 @@ try {
             Write-Host "Details: $($_.ErrorDetails.Message)" -ForegroundColor Yellow
         }
     }
-    Write-Host "`n💡 Tip: Get your API key from: https://dashboard.render.com/account/api-keys" -ForegroundColor Cyan
+    Write-Host "`nTip: Get your API key from: https://dashboard.render.com/account/api-keys" -ForegroundColor Cyan
     exit 1
 }

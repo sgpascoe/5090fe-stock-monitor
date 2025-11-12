@@ -5,5 +5,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python nvidia_stock_monitor.py
     plan: free
-    # Set PUSHOVER_TOKEN and PUSHOVER_USER as environment variables in Render
+    envVars:
+      - key: CHECK_INTERVAL
+        value: 15
+    # Set PUSHOVER_TOKEN and PUSHOVER_USER as environment variables in Render dashboard
 

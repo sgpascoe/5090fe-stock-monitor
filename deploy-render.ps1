@@ -6,7 +6,7 @@ param(
     [string]$ApiKey,
     
     [string]$ServiceName = "nvidia-stock-monitor",
-    [string]$RepoUrl = "https://github.com/CoveMarketing/5090fe-stock-monitor",
+    [string]$RepoUrl = "https://github.com/sgpascoe/5090fe-stock-monitor",
     [string]$Branch = "master"
 )
 
@@ -48,7 +48,7 @@ try {
         envVars = @(
             @{
                 key = "CHECK_INTERVAL"
-                value = "30"
+                value = "15"
             }
         )
     } | ConvertTo-Json -Depth 10

@@ -21,7 +21,7 @@ if (-not $apiKey) {
     Write-Host "OR use the web interface (easier):" -ForegroundColor Cyan
     Write-Host "1. Go to: https://dashboard.render.com" -ForegroundColor White
     Write-Host "2. Click 'New +' → 'Background Worker'" -ForegroundColor White
-    Write-Host "3. Connect repo: CoveMarketing/5090fe-stock-monitor" -ForegroundColor White
+    Write-Host "3. Connect repo: sgpascoe/5090fe-stock-monitor" -ForegroundColor White
     Write-Host "4. Render auto-detects settings from render.yaml" -ForegroundColor White
     Write-Host "5. Add environment variables and deploy!" -ForegroundColor White
     exit 0

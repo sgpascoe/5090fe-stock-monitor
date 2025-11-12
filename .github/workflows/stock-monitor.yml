@@ -1,10 +1,10 @@
 name: RTX 5090 Stock Monitor
 
 on:
-  schedule:
-    # Run every 1 minute (GitHub Actions minimum - checks 3 URLs: 1 category page + 2 product pages)
-    - cron: '*/1 * * * *'
-  workflow_dispatch:  # Allow manual triggering
+  # DISABLED - Using Render for 15-second checks instead
+  # schedule:
+  #   - cron: '*/1 * * * *'
+  workflow_dispatch:  # Allow manual triggering only
 
 jobs:
   check-stock:

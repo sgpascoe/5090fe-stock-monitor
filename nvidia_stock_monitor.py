@@ -10,6 +10,8 @@ from datetime import datetime
 import json
 import os
 from typing import Dict, Any
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Monitor configuration
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "15"))  # seconds between checks (default 15s)
@@ -40,12 +42,22 @@ class StockMonitor:
             "Accept-Language": "en-GB,en;q=0.9",
             "Referer": "https://www.nvidia.com/en-gb/store/"
         })
+        # Add retry strategy
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"]
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
 
     def check_stock(self) -> Dict[str, Any]:
         """Check NVIDIA store for RTX 5090 stock status using API and multiple marketplace urls"""
         # Method 1: NVIDIA API
         try:
-            api_response = self.session.get(NVIDIA_API_URL, timeout=10)
+            api_response = self.session.get(NVIDIA_API_URL, timeout=(10, 30))  # (connect, read) timeout
             if api_response.status_code == 200:
                 try:
                     data = api_response.json()
@@ -92,7 +104,7 @@ class StockMonitor:
         marketplace_errors = []
         for url in NVIDIA_MARKETPLACE_URLS:
             try:
-                response = self.session.get(url, timeout=10)
+                response = self.session.get(url, timeout=(10, 30))  # (connect, read) timeout
             except Exception as exc:
                 msg = f"{url} request failed: {exc}"
                 print(msg)
@@ -155,7 +167,7 @@ class StockMonitor:
                     "url": url,
                     "url_title": "Open NVIDIA Store"
                 },
-                timeout=10
+                timeout=(10, 30)  # (connect, read) timeout
             )
             print(f"Pushover sent: {response.status_code}")
         except Exception as exc:
@@ -178,7 +190,7 @@ class StockMonitor:
                     "priority": 0,
                     "sound": "gamelan"
                 },
-                timeout=10
+                timeout=(10, 30)  # (connect, read) timeout
             )
         except Exception as exc:
             print(f"Pushover notice error: {exc}")

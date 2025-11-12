@@ -57,7 +57,7 @@ class StockMonitor:
         """Check NVIDIA store for RTX 5090 stock status using API and multiple marketplace urls"""
         # Method 1: NVIDIA API
         try:
-            api_response = self.session.get(NVIDIA_API_URL, timeout=(10, 30))  # (connect, read) timeout
+            api_response = self.session.get(NVIDIA_API_URL, timeout=(5, 15))  # (connect, read) timeout
             if api_response.status_code == 200:
                 try:
                     data = api_response.json()
@@ -104,7 +104,7 @@ class StockMonitor:
         marketplace_errors = []
         for url in NVIDIA_MARKETPLACE_URLS:
             try:
-                response = self.session.get(url, timeout=(10, 30))  # (connect, read) timeout
+                response = self.session.get(url, timeout=(5, 15))  # (connect, read) timeout
             except Exception as exc:
                 msg = f"{url} request failed: {exc}"
                 print(msg)
@@ -167,7 +167,7 @@ class StockMonitor:
                     "url": url,
                     "url_title": "Open NVIDIA Store"
                 },
-                timeout=(10, 30)  # (connect, read) timeout
+                timeout=(5, 10)  # (connect, read) timeout
             )
             print(f"Pushover sent: {response.status_code}")
         except Exception as exc:
@@ -190,7 +190,7 @@ class StockMonitor:
                     "priority": 0,
                     "sound": "gamelan"
                 },
-                timeout=(10, 30)  # (connect, read) timeout
+                timeout=(5, 10)  # (connect, read) timeout
             )
         except Exception as exc:
             print(f"Pushover notice error: {exc}")

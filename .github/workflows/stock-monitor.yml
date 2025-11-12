@@ -2,7 +2,7 @@ name: RTX 5090 Stock Monitor
 
 on:
   schedule:
-    # Run every 1 minute (GitHub Actions minimum)
+    # Run every 1 minute (GitHub Actions minimum - checks 3 URLs: 1 category page + 2 product pages)
     - cron: '*/1 * * * *'
   workflow_dispatch:  # Allow manual triggering
 
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: master
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -26,7 +26,7 @@ jobs:
         run: |
           pip install -r requirements.txt
       
-      - name: Run stock monitor
+      - name: Run stock check
         env:
           PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
           PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
@@ -43,8 +43,6 @@ jobs:
           FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
           FCM_PROJECT_ID: ${{ secrets.FCM_PROJECT_ID }}
           FCM_DEVICE_TOKEN: ${{ secrets.FCM_DEVICE_TOKEN }}
-          CHECK_INTERVAL: 15
-          BACKOFF_DELAY: 5
         run: |
-          timeout 60 python nvidia_stock_monitor.py || true
+          python check_stock_once.py
 

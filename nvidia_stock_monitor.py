@@ -7,7 +7,6 @@ Checks NVIDIA UK store and sends multiple alert types when in stock
 import requests
 import time
 from datetime import datetime
-import json
 import os
 from typing import Dict, Any
 from requests.adapters import HTTPAdapter
@@ -18,14 +17,13 @@ CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "15"))  # seconds between check
 BACKOFF_DELAY = int(os.getenv("BACKOFF_DELAY", "5"))  # seconds to wait on error before retry
 PRODUCT_NAME = "NVIDIA RTX 5090 FE"
 
-# NVIDIA API endpoints
-NVIDIA_API_URL = "https://api.nvidia.partners/edge/product/search?page=1&limit=9&locale=en-gb&category=GPU&gpu=RTX%205090"
-NVIDIA_STORE_URL = "https://www.nvidia.com/en-gb/shop/geforce/gpu/?page=1&limit=100&locale=en-gb&category=GPU&gpu=RTX%205090"
-NVIDIA_MARKETPLACE_URLS = [
-    "https://marketplace.nvidia.com/en-gb/consumer/graphics-cards/nvidia-geforce-rtx-5090-borderlands-4-game-bundle/",
-    "https://marketplace.nvidia.com/en-gb/consumer/graphics-cards/nvidia-geforce-rtx-5090/"
+# NVIDIA URLs to check: 1 category page + 2 product pages
+NVIDIA_CATEGORY_URL = "https://marketplace.nvidia.com/en-gb/consumer/graphics-cards/?locale=en-gb&page=1&limit=12&gpu=RTX%205090&manufacturer=NVIDIA&manufacturer_filter=NVIDIA~1,ASUS~3,GAINWARD~2,GIGABYTE~2,INNO3D~2,MSI~4,PNY~1,ZOTAC~1"
+NVIDIA_PRODUCT_URLS = [
+    "https://marketplace.nvidia.com/en-gb/consumer/graphics-cards/nvidia-geforce-rtx-5090/",
+    "https://marketplace.nvidia.com/en-gb/consumer/graphics-cards/nvidia-geforce-rtx-5090-borderlands-4-game-bundle/"
 ]
-NVIDIA_PRODUCT_PAGE = NVIDIA_STORE_URL
+NVIDIA_PRODUCT_PAGE = NVIDIA_CATEGORY_URL
 
 # Notification Services Configuration - from environment variables
 PUSHOVER_TOKEN = os.getenv("PUSHOVER_TOKEN", "")
@@ -54,37 +52,7 @@ class StockMonitor:
         self.session.mount("https://", adapter)
 
     def check_stock(self) -> Dict[str, Any]:
-        """Check NVIDIA store for RTX 5090 stock status using API and multiple marketplace urls"""
-        # Method 1: NVIDIA API
-        try:
-            api_response = self.session.get(NVIDIA_API_URL, timeout=(5, 15))  # (connect, read) timeout
-            if api_response.status_code == 200:
-                try:
-                    data = api_response.json()
-                except json.JSONDecodeError:
-                    print("NVIDIA API returned invalid JSON, falling back to HTML scraping.")
-                else:
-                    products = data.get("searchedProducts", {}).get("productDetails", [])
-                    for product in products:
-                        product_name = (product.get("productTitle") or "").lower()
-                        if "5090" in product_name and "founder" in product_name:
-                            availability = (product.get("prdStatus") or "").lower()
-                            in_stock = "out of stock" not in availability and "notify me" not in availability
-                            if in_stock:
-                                price = product.get("productPrice", {}).get("finalPrice", "Check site")
-                                return {
-                                    "in_stock": True,
-                                    "timestamp": datetime.now().isoformat(),
-                                    "url": product.get("productURL", NVIDIA_PRODUCT_PAGE),
-                                    "price": price,
-                                    "method": "api"
-                                }
-            else:
-                print(f"NVIDIA API HTTP {api_response.status_code}")
-        except Exception as exc:
-            print(f"API check failed: {exc}")
-
-        # Method 2: Marketplace pages (primary)
+        """Check NVIDIA store for RTX 5090 stock status: 1 category page + 2 product pages"""
         out_of_stock_indicators = [
             "out of stock",
             "notify me",
@@ -101,20 +69,23 @@ class StockMonitor:
             "add to bag"
         ]
 
-        marketplace_errors = []
-        for url in NVIDIA_MARKETPLACE_URLS:
+        # Check all URLs: category page + 2 product pages
+        urls_to_check = [NVIDIA_CATEGORY_URL] + NVIDIA_PRODUCT_URLS
+        errors = []
+
+        for url in urls_to_check:
             try:
                 response = self.session.get(url, timeout=(5, 15))  # (connect, read) timeout
             except Exception as exc:
                 msg = f"{url} request failed: {exc}"
                 print(msg)
-                marketplace_errors.append(msg)
+                errors.append(msg)
                 continue
 
             if response.status_code != 200:
                 msg = f"{url} HTTP {response.status_code}"
                 print(msg)
-                marketplace_errors.append(msg)
+                errors.append(msg)
                 continue
 
             content = response.text.lower()
@@ -123,27 +94,30 @@ class StockMonitor:
             in_stock = has_in_stock and not has_out_of_stock
 
             if in_stock:
+                page_type = "category" if url == NVIDIA_CATEGORY_URL else "product"
                 return {
                     "in_stock": True,
                     "timestamp": datetime.now().isoformat(),
                     "url": url,
                     "price": "£1,799.00",
-                    "method": "marketplace"
+                    "method": page_type
                 }
 
-        if marketplace_errors and len(marketplace_errors) == len(NVIDIA_MARKETPLACE_URLS):
+        # If all URLs failed, return error
+        if errors and len(errors) == len(urls_to_check):
             return {
                 "in_stock": False,
-                "error": "; ".join(marketplace_errors),
+                "error": "; ".join(errors),
                 "timestamp": datetime.now().isoformat()
             }
 
+        # All URLs checked, no stock found
         return {
             "in_stock": False,
             "timestamp": datetime.now().isoformat(),
-            "url": NVIDIA_PRODUCT_PAGE,
+            "url": NVIDIA_CATEGORY_URL,
             "price": "£1,799.00",
-            "method": "marketplace"
+            "method": "category"
         }
 
     def send_pushover_emergency(self, message: str, url: str):

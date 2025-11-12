@@ -11,7 +11,6 @@ from datetime import datetime
 # Import the StockMonitor class
 sys.path.insert(0, os.path.dirname(__file__))
 from nvidia_stock_monitor import StockMonitor
-import nvidia_stock_monitor as nsm
 
 if __name__ == "__main__":
     monitor = StockMonitor()
@@ -42,7 +41,10 @@ if __name__ == "__main__":
     
     if error:
         print(f"[ERROR] Error checking stock: {error}")
-        sys.exit(1)
+        # Don't fail the workflow on network errors - just log and exit gracefully
+        # This allows the workflow to continue running on the next scheduled run
+        print("[INFO] Workflow will retry on next scheduled run")
+        sys.exit(0)
     
     if current_status:
         print(f"[STOCK DETECTED] at {datetime.now().strftime('%H:%M:%S')}!")
